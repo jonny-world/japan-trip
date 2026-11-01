@@ -1,0 +1,5 @@
+# Plain trip data, tickets and the passphrase never leave this Mac.
+private/
+*.preview.html
+.DS_Store
+docs/icons/.*
