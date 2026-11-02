@@ -2,7 +2,7 @@
    Nothing about the trip lives in this file: dates, places and tickets all come from the encrypted bundle. */
 'use strict';
 
-const BUILD = '2b34911913fc';
+const BUILD = 'd7ea48218e1b';
 const TZ = 'Asia/Tokyo';
 const app = document.getElementById('app');
 let TRIP = null;
