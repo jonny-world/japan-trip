@@ -45,11 +45,11 @@ const I = {
   close: svg('<path d="M6 6l12 12M18 6 6 18"/>', 'stroke-width="2"'),
   say: svg('<path d="M4.5 6.5a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H11l-4.5 3.5v-3.5h0a2 2 0 0 1-2-2z"/><path d="M9 10.5h6"/>'),
 };
-const kindIcon = (k) => I[k] || I.do;
+const kindIcon = (k) => I[k] || I[{ entry: 'qr' }[k]] || I.do;
 // Colour families for kinds of thing: travel, stays, sights, food and drink, shopping.
-const GROUP = { flight: 'go', train: 'go', ferry: 'go', car: 'go', forwarding: 'go', stay: 'stay', see: 'see', activity: 'see', do: 'see', eat: 'food', food: 'food', drink: 'food', tea: 'food', coffee: 'food', shop: 'shop' };
+const GROUP = { entry: 'go', flight: 'go', train: 'go', ferry: 'go', car: 'go', forwarding: 'go', stay: 'stay', see: 'see', activity: 'see', do: 'see', eat: 'food', food: 'food', drink: 'food', tea: 'food', coffee: 'food', shop: 'shop' };
 const kcls = (k) => `k-${GROUP[k] || 'see'}`;
-const KIND = { flight: 'Flight', train: 'Train', ferry: 'Ferry', car: 'Car', forwarding: 'Luggage', stay: 'Stay', activity: 'Ticket', food: 'Table' };
+const KIND = { entry: 'Arrival', flight: 'Flight', train: 'Train', ferry: 'Ferry', car: 'Car', forwarding: 'Luggage', stay: 'Stay', activity: 'Ticket', food: 'Table' };
 
 /* ---------------- Utilities ---------------- */
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -467,7 +467,7 @@ function ticketZone(b) {
 
 function placeBlock(p, id, label) {
   if (!p) return '';
-  const drv = p.addressJa || p.nameJa || p.phone;
+  const drv = !!p.addressJa;
   return `<div class="place">
     ${label ? `<p class="pl-label">${esc(label)}</p>` : ''}
     <p class="pl-name">${esc(p.name)}</p>
@@ -519,7 +519,7 @@ function bookingView(id) {
     fact('Cancellation', b.cancel ? esc(b.cancel) : ''),
     fact('Email', b.place?.email ? `<a href="mailto:${esc(b.place.email)}">${esc(b.place.email)}</a>` : ''),
   ].join('');
-  const docs = b.docs?.length ? `<div class="docs">${b.docs.map((d) => `<button type="button" class="doc" data-doc="${esc(d)}"><img src="${IMAGES[d]}" alt="Original booking voucher" loading="lazy"><span>Original voucher</span></button>`).join('')}</div>` : '';
+  const docs = b.docs?.length ? `<div class="docs">${b.docs.map((d, i) => { const label = b.docLabels?.[i] || (b.docs.length > 1 ? `Page ${i + 1}` : 'Original voucher'); return `<button type="button" class="doc" data-doc="${esc(d)}"><img src="${IMAGES[d]}" alt="${esc(label)}" loading="lazy"><span>${esc(label)}</span></button>`; }).join('')}</div>` : '';
   const places = placeBlock(b.place, b.id, b.place2 ? 'Pick up' : '') + (b.place2 ? placeBlock(b.place2, `${b.id}#2`, b.place2.label || 'Drop off') : '');
   const guides = (b.guide || []).map((g) => guideBlock(g)).join('');
   return `<main class="screen">
@@ -582,6 +582,12 @@ function guideView() {
     <section class="section"><details class="fold"><summary>Every route, day by day <span class="aside">${routes.filter((r) => !r.g.startsWith('suica-')).length}</span></summary>${routes.filter((r) => !r.g.startsWith('suica-')).map((r) => row(r.g, dayMonth(r.date))).join('')}</details></section>
     <section class="section"><h2>Phrases</h2><ul class="phrases">${E.phrases.map((p, i) => `<li><button type="button" data-phrase="${i}"><span class="pe">${esc(p.en)}</span><span class="pj ja" lang="ja">${esc(p.ja)}</span></button></li>`).join('')}</ul></section>
     <section class="section"><h2>Emergency</h2><dl class="facts">${E.emergency.map((e) => fact(e.label, `<a href="${telHref(e.value)}">${esc(e.value)}</a>`, 'big tnum')).join('')}</dl></section>
+    ${E.insurance ? `<section class="section"><h2>Travel insurance</h2><dl class="facts">
+      ${fact('24-hour emergency assistance', `<a href="${telHref(E.insurance.emergency)}">${esc(E.insurance.emergency)}</a>`, 'big tnum')}
+      ${fact('Policy number', copyable(E.insurance.policy))}
+      ${fact('Policy', esc(E.insurance.insurer))}
+      ${fact('Covered', esc(E.insurance.cover))}</dl>
+      <div class="docs">${(E.insurance.docs || []).filter((d) => IMAGES[d]).map((d, i) => `<button type="button" class="doc" data-doc="${esc(d)}"><img src="${IMAGES[d]}" alt="Policy page ${i + 1}" loading="lazy"><span>Page ${i + 1}</span></button>`).join('')}</div></section>` : ''}
     <section class="section"><h2>This app</h2>
       <div class="status-line flush" id="offline-line"><span class="dot"></span><span>Checking offline copy…</span></div>
       <p class="muted small">Version ${esc(META.version)}</p>
@@ -643,22 +649,21 @@ function driverPlace(key) {
 }
 function showDriver(key) {
   const p = driverPlace(key);
-  if (!p) return;
-  const ja = [p.nameJa, p.addressJa].filter(Boolean);
-  const main = ja.length
-    ? `<div class="drv-addr ja" lang="ja">${ja.map(esc).join('<br>')}</div>`
-    : `<div class="drv-addr"><span class="drv-l">電話番号 · phone</span><span class="tnum">${esc(p.phone)}</span></div>`;
-  overlay('driver', `<div class="drv">${main}
-    <p class="drv-en">${esc(p.name)}${p.address ? `<br>${esc(p.address)}` : ''}</p>
-    ${ja.length && p.phone ? `<p class="drv-en">電話 ${esc(p.phone)}</p>` : ''}
-    ${!ja.length ? '<p class="drv-en">Drivers can set the satnav from the phone number.</p>' : ''}</div>`, () => keepAwake(true));
+  if (!p?.addressJa) return;
+  const ja = (p.nameJa || p.name).trim();
+  const addr = esc(p.addressJa).replace(/^(〒\d{3}-\d{4})\s*/, '$1<br>');
+  overlay('driver', `<div class="drv">
+    <p class="drv-name ja" lang="ja">${esc(ja)}</p>
+    ${p.name && p.name.trim().toLowerCase() !== ja.toLowerCase() ? `<p class="drv-en">${esc(p.name)}</p>` : ''}
+    <p class="drv-addr ja" lang="ja">${addr}</p>
+    ${p.address ? `<p class="drv-en">${esc(p.address)}</p>` : ''}</div>`, () => keepAwake(true));
 }
 function showPhrase(i) {
   const p = TRIP.essentials.phrases[i];
   overlay('driver', `<div class="drv"><div class="drv-addr ja" lang="ja">${esc(p.ja)}</div><p class="drv-en">${esc(p.en)}<br><i>${esc(p.say)}</i></p></div>`);
 }
 function showDoc(key) {
-  overlay('doc-ov', `<div class="doc-stage"><img src="${IMAGES[key]}" alt="Original booking voucher"></div>`);
+  overlay('doc-ov', `<div class="doc-stage"><img src="${IMAGES[key]}" alt="Document"></div>`);
 }
 
 /* ---------------- Router ---------------- */

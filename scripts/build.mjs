@@ -56,6 +56,7 @@ for (const b of trip.bookings) {
   (b.tickets || []).forEach((t, i) => { if (t.qr) embed(`${b.id}#${i}`, (qrIndex[b.id] || [])[i] || ''); });
   for (const d of b.docs || []) embed(d, d);
 }
+for (const d of trip.essentials?.insurance?.docs || []) embed(d, d);
 if (problems.length) { console.error('Data problems:\n  ' + problems.join('\n  ')); process.exit(1); }
 
 // ---- Fonts: Latin families as normal, Shippori Mincho subset to the Japanese characters we use.

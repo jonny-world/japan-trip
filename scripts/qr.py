@@ -16,6 +16,21 @@ trip = json.loads((PRIV / 'trip.json').read_text())
 out_dir = PRIV / 'tickets' / 'qr'
 out_dir.mkdir(parents=True, exist_ok=True)
 det = cv2.QRCodeDetector()
+try:
+    det2 = cv2.QRCodeDetectorAruco()  # second detector: the classic one misses some dense codes
+except AttributeError:
+    det2 = None
+
+def reads(path, want):
+    img = cv2.imread(str(path))
+    for d in (det, det2):
+        if d is None:
+            continue
+        for s in (1, 0.75, 0.5):
+            im = img if s == 1 else cv2.resize(img, None, fx=s, fy=s, interpolation=cv2.INTER_AREA)
+            if d.detectAndDecode(im)[0] == want:
+                return True
+    return False
 bad = 0
 for b in trip.get('bookings', []):
     for i, t in enumerate(b.get('tickets', [])):
@@ -30,9 +45,8 @@ for b in trip.get('bookings', []):
             scale = max(1, 720 // m.shape[0])
             img = cv2.resize(m, (m.shape[1] * scale, m.shape[0] * scale), interpolation=cv2.INTER_NEAREST)
             cv2.imwrite(str(path), img, [cv2.IMWRITE_PNG_COMPRESSION, 9])
-        val, _, _ = det.detectAndDecode(cv2.imread(str(path)))
-        if val != t['qr']:
-            print(f"QR MISMATCH {b['id']} #{i + 1}: {val!r} != {t['qr']!r}"); bad += 1
+        if not reads(path, t['qr']):
+            print(f"QR doesn't scan back: {b['id']} #{i + 1}"); bad += 1
         t['image'] = f"qr/{name}"
 (PRIV / 'tickets' / 'qr' / 'index.json').write_text(json.dumps({b['id']: [t.get('image') for t in b.get('tickets', [])] for b in trip.get('bookings', [])}, indent=1))
 sys.exit(1 if bad else 0)

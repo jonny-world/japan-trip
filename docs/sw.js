@@ -1,12 +1,12 @@
 /* Offline service worker. Everything the app needs is cached at install, so it runs in airplane mode. */
-const VERSION = 'd7ea48218e1b';
+const VERSION = '6c6fe5f1f653';
 const CACHE = `japan-${VERSION}`;
 const FONT_CACHE = 'japan-fonts';
 const ASSETS = [
   "index.html",
-  "app.css?v=d7ea48218e1b",
-  "app.js?v=d7ea48218e1b",
-  "data.bin?v=d7ea48218e1b",
+  "app.css?v=6c6fe5f1f653",
+  "app.js?v=6c6fe5f1f653",
+  "data.bin?v=6c6fe5f1f653",
   "manifest.webmanifest",
   "icons/icon-180.png",
   "icons/icon-192.png",
@@ -16,7 +16,7 @@ const ASSETS = [
 ];
 const FONT_CSS = [
   "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=DM+Sans:wght@400;500;700&display=swap",
-  "https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&display=swap&text=%E5%8F%B7%E6%97%A5%E6%9C%AC%E7%95%AA%E8%A9%B1%E9%9B%BB"
+  "https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&display=swap&text=%E3%80%92%E6%97%A5%E6%9C%AC"
 ];
 
 self.addEventListener('install', (event) => {

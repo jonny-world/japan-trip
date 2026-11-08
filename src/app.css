@@ -572,11 +572,13 @@ a { color: inherit; }
 .qo-nav svg { width: 20px; height: 20px; }
 .qo-count { font-size: 15px; font-weight: 500; min-width: 54px; }
 .qo-hint { margin: 14px 0 0; font-size: 13px; color: #777; }
+.driver { overflow-y: auto; }
 .drv { margin: auto 0; }
-.drv-addr { font: 700 34px/1.5 var(--mincho); color: #111; overflow-wrap: anywhere; }
-.drv-addr .drv-l { display: block; font: 500 16px var(--sans); color: #666; }
-.drv-addr .tnum { font: 700 44px/1.2 var(--sans); letter-spacing: 0.02em; }
-.drv-en { font-size: 16px; color: #555; margin: 16px 0 0; }
+.drv-name, .drv-addr { margin: 0; color: #111; overflow-wrap: anywhere; font-family: var(--mincho); font-weight: 700; }
+.drv-name { font-size: 38px; line-height: 1.3; }
+.drv-addr { margin-top: 36px; font-size: 32px; line-height: 1.5; }
+.drv > .drv-addr:first-child { margin-top: 0; }
+.drv-en { font-size: 15px; line-height: 1.4; color: #666; margin: 8px 0 0; }
 .doc-ov { background: rgba(10, 12, 20, 0.94); }
 .doc-ov .ov-close { color: #fff; background: rgba(255,255,255,0.12); }
 .doc-stage { flex: 1; overflow: auto; -webkit-overflow-scrolling: touch; }
