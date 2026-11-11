@@ -558,33 +558,37 @@ function guidePage(id) {
 }
 
 /* ---------------- Yen calculator ----------------
-   Yen in, pounds out, on its own keypad so the phone keyboard never gets in the way.
+   Yen in, pounds out by default (⇅ flips it), on a small keypad of its own so the phone keyboard never gets in the way.
    The rate is fetched whenever the app is open and online, then kept on the phone, so it works in airplane mode.
    Until the first fetch succeeds it falls back to the rate built in below. */
 const FX_KEY = 'jt-fx';
+const FX_DIR = 'jt-fx-dir';
 const FX_SEED = { jpy: 212.0, date: '2026-11-09', src: 'built in' };
 const FX_EVERY = 3 * 3600 * 1000;
 const FX_TAX = 1.1; // Prices include 10% consumption tax; from Nov 2026 tourists claim it back on departure.
 const FX_MAX = 8;
+// Four columns keeps the keypad to three short rows. The fourth key on row two is 000 for yen and a decimal point for pounds.
+const FX_KEYS = ['1', '2', '3', 'back', '4', '5', '6', 'alt', '7', '8', '9', '0'];
 let fxDigits = '';
 const fxSaved = () => { const r = store.get(FX_KEY, null); return r && r.jpy > 50 && r.jpy < 1000 ? r : null; };
 const fxRate = () => fxSaved() || FX_SEED;
+const fxDir = () => (store.get(FX_DIR, 'jpy') === 'gbp' ? 'gbp' : 'jpy');
 const gbp = (n) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const yen = (n) => `¥${Math.round(n).toLocaleString('en-GB')}`;
 const backIcon = svg('<path d="M9 5.5h10.5a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H9l-5.5-6.5z"/><path d="m11.5 9.5 5 5M16.5 9.5l-5 5"/>');
+const swapIcon = svg('<path d="M7.5 4v15M3.5 8l4-4 4 4M16.5 20V5M12.5 16l4 4 4-4"/>');
 
 function fxSection() {
-  const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '000', '0', 'back'];
   return `<section class="section fx"><h2>Yen calculator</h2>
     <div class="fx-box">
       <div class="fx-top">
-        <div class="fx-yen tnum" data-fx-yen></div>
+        <div class="fx-from tnum" data-fx-from></div>
         <button type="button" class="fx-clear" data-fx-clear>Clear</button>
+        <button type="button" class="fx-swap" data-fx-swap aria-label="Swap yen and pounds">${swapIcon}</button>
       </div>
       <div class="fx-out tnum" data-fx-out aria-live="polite"></div>
-      <div class="fx-tax" data-fx-tax></div>
-      <div class="fx-keys">${keys.map((k) => k === 'back'
-        ? `<button type="button" class="fx-key fx-back" data-key="back" aria-label="Delete">${backIcon}</button>`
-        : `<button type="button" class="fx-key${k === '000' ? ' fx-000' : ''}" data-key="${k}">${k}</button>`).join('')}</div>
+      <div class="fx-note" data-fx-note></div>
+      <div class="fx-keys">${FX_KEYS.map((k) => `<button type="button" class="fx-key${k === 'back' ? ' fx-back' : ''}" data-key="${k}"${k === 'back' ? ' aria-label="Delete"' : ''}>${k === 'back' ? backIcon : k === 'alt' ? '' : k}</button>`).join('')}</div>
     </div>
     <p class="fx-rate" data-fx-rate></p>
   </section>`;
@@ -593,21 +597,48 @@ function paintFx() {
   const out = app.querySelector('[data-fx-out]');
   if (!out) return;
   const { jpy, date, src, checked } = fxRate();
+  const dir = fxDir();
   const n = Number(fxDigits || 0);
-  const yenEl = app.querySelector('[data-fx-yen]');
-  yenEl.textContent = `¥${n.toLocaleString('en-GB')}`;
-  yenEl.classList.toggle('empty', !n);
-  out.textContent = gbp(n / jpy);
-  app.querySelector('[data-fx-clear]').hidden = !n;
+  const from = app.querySelector('[data-fx-from]');
+  if (dir === 'jpy') from.textContent = `¥${n.toLocaleString('en-GB')}`;
+  else { const [i, d] = (fxDigits || '0').split('.'); from.textContent = `£${Number(i || 0).toLocaleString('en-GB')}${d !== undefined ? `.${d}` : ''}`; }
+  from.classList.toggle('empty', !n);
+  out.textContent = dir === 'jpy' ? gbp(n / jpy) : yen(n * jpy);
+  app.querySelector('[data-fx-clear]').hidden = !fxDigits;
+  app.querySelector('[data-key="alt"]').textContent = dir === 'jpy' ? '000' : '.';
   // Over ¥5,000 at one shop the 10% consumption tax can be claimed back when you leave Japan.
-  app.querySelector('[data-fx-tax]').textContent = n >= 5500 ? `≈ ${gbp(n / FX_TAX / jpy)} once the 10% tax is refunded` : `¥1,000 ≈ ${gbp(1000 / jpy)}`;
+  app.querySelector('[data-fx-note]').textContent = dir === 'jpy'
+    ? (n >= 5500 ? `≈ ${gbp(n / FX_TAX / jpy)} · 10% tax adjusted` : `¥1,000 ≈ ${gbp(1000 / jpy)}`)
+    : `£10 ≈ ${yen(10 * jpy)}`;
   const fresh = checked ? `checked ${new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(checked))}` : 'updates next time you’re online';
   app.querySelector('[data-fx-rate]').innerHTML = `<b class="tnum">£1 = ¥${jpy.toFixed(2)}</b> · ${esc(src === 'built in' ? `built-in rate from ${dayMonth(date)}` : `market rate for ${dayMonth(date)}`)} · ${esc(fresh)}`;
 }
 function fxKey(k) {
-  if (k === 'back') fxDigits = fxDigits.slice(0, -1);
-  else if (k === 'clear') fxDigits = '';
-  else if (fxDigits || k !== '000') fxDigits = (fxDigits + k).replace(/^0+/, '').slice(0, FX_MAX);
+  const gbpMode = fxDir() === 'gbp';
+  let s = fxDigits;
+  if (k === 'back') s = s.slice(0, -1);
+  else if (k === 'clear') s = '';
+  else if (k === 'alt' && gbpMode) { if (!s.includes('.')) s = (s || '0') + '.'; }
+  else {
+    const add = k === 'alt' ? '000' : k;
+    if (add === '000' && !s) return;
+    if (gbpMode && /\.\d{2}$/.test(s)) return;
+    s = (s + add).replace(/^0+(?=\d)/, '');
+    if (s.replace('.', '').length > FX_MAX) return;
+  }
+  fxDigits = s;
+  paintFx();
+}
+let fxUndo = null; // swapping straight back restores what was typed, not a rounded round-trip
+function fxSwap() {
+  const { jpy } = fxRate();
+  const n = Number(fxDigits || 0);
+  const to = fxDir() === 'jpy' ? 'gbp' : 'jpy';
+  store.set(FX_DIR, to);
+  const before = fxDigits;
+  fxDigits = fxUndo && fxUndo.to === fxDigits ? fxUndo.from
+    : !n ? '' : to === 'gbp' ? String(Math.round((n / jpy) * 100) / 100) : String(Math.round(n * jpy));
+  fxUndo = { from: before, to: fxDigits };
   paintFx();
 }
 async function fxFetch(url, pick) {
@@ -810,6 +841,7 @@ app.addEventListener('click', async (e) => {
   const key = t.closest('[data-key]');
   if (key) { fxKey(key.dataset.key); return; }
   if (t.closest('[data-fx-clear]')) { fxKey('clear'); return; }
+  if (t.closest('[data-fx-swap]')) { fxSwap(); return; }
   if (t.closest('[data-update]')) {
     if (!REG) { toast('Updates only work in the installed app'); return; }
     toast('Checking…');
