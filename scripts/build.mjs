@@ -36,9 +36,17 @@ for (const d of trip.days) {
     if (it.b && !bookingIds.has(it.b)) problems.push(`${d.date}: unknown booking ${it.b}`);
     if (it.g && !guideIds.has(it.g)) problems.push(`${d.date}: unknown guide ${it.g}`);
     if (it.time && /^\d/.test(it.time) && !/^\d{2}:\d{2}$/.test(it.time)) problems.push(`${d.date}: bad time "${it.time}"`);
+    if (it.shops && (it.b || it.g)) problems.push(`${d.date}: "${it.title}" has shops but opens a booking or guide, so the list can't be reached`);
+    for (const s of it.shops || []) if (!s.name || (s.map && !s.map.q)) problems.push(`${d.date}: "${it.title}" has a shop without a name or map query`);
   }
 }
 for (const b of trip.bookings) for (const g of b.guide || []) if (!guideIds.has(g)) problems.push(`${b.id}: unknown guide ${g}`);
+const MEAL_IDS = ['coffee', 'lunch', 'dinner', 'drinks'];
+for (const p of trip.food || []) {
+  if (!trip.cities[p.city]) problems.push(`food ${p.name}: unknown city ${p.city}`);
+  if (!p.meals?.length || p.meals.some((m) => !MEAL_IDS.includes(m))) problems.push(`food ${p.name}: bad meals ${p.meals}`);
+  for (const d of p.dates || []) if (!dates.includes(d)) problems.push(`food ${p.name}: date ${d} is not a trip day`);
+}
 
 // ---- QR codes: redrawn from each ticket's payload and round-trip checked (scripts/qr.py).
 try { execFileSync('python3', [join(ROOT, 'scripts', 'qr.py'), PRIV], { stdio: 'inherit' }); } catch { problems.push('QR codes failed their round-trip check'); }

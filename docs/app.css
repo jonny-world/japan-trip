@@ -613,6 +613,9 @@ a { color: inherit; }
 .tl-mini svg { width: 20px; height: 20px; }
 .taxi-act { margin: 0 0 14px; }
 .trail { font-size: 13px; font-weight: 500; color: var(--k, var(--accent)); text-decoration: none; }
+/* Shopping rows: a quiet tag on the row, and a page of shops with a pin each */
+.shops-tag { font-size: 13px; font-weight: 500; color: var(--k, var(--accent)); }
+.shops-note { margin: 0 0 14px; font-size: 14px; line-height: 1.45; color: var(--text-2); }
 
 /* ---------- Yen calculator ---------- */
 .fx {
@@ -648,3 +651,48 @@ a { color: inherit; }
 .fx-rate b { font-weight: 600; color: var(--text-2); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .fx-key:active { background: var(--ink-line); } }
 :root[data-theme="dark"] .fx-key:active { background: var(--ink-line); }
+
+/* ---------- Eat: food options panel ---------- */
+.plan-h { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.eat-btn {
+  display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 14px; border-radius: 17px;
+  font: 500 14px/1 var(--sans); font-style: normal; letter-spacing: 0; color: var(--k-food); border: 1px solid var(--k-food);
+}
+.eat-btn svg { width: 16px; height: 16px; }
+.see-opts { font: 500 13px/1.2 var(--sans); color: var(--k-food); padding: 2px 0; }
+body.sheet-open { overflow: hidden; }
+.sheet-wrap { position: fixed; inset: 0; z-index: 70; }
+.sheet-scrim { position: absolute; inset: 0; background: rgba(10, 12, 20, 0.45); }
+.sheet {
+  position: absolute; left: 0; right: 0; bottom: 0; max-height: 86vh; display: flex; flex-direction: column;
+  background: var(--bg); color: var(--text); border-radius: 18px 18px 0 0; padding-bottom: var(--safe-bottom);
+  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.25);
+}
+.sheet-head { padding: 8px var(--gutter) 0; flex: none; }
+.sheet-grip { width: 40px; height: 4px; border-radius: 2px; background: var(--rule); margin: 0 auto 8px; }
+.sheet-top { display: flex; align-items: center; justify-content: space-between; }
+.sheet-top h2 { font: italic 500 26px/1.1 var(--serif); margin: 0; }
+.sheet-x { width: 40px; height: 40px; margin-right: -8px; display: grid; place-items: center; color: var(--text-2); }
+.sheet-x svg { width: 22px; height: 22px; }
+.seg { display: flex; margin-top: 10px; background: var(--tint); border-radius: 10px; padding: 3px; }
+.seg button { flex: 1; height: 34px; border-radius: 8px; font-size: 14px; font-weight: 500; color: var(--text-2); }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12); }
+.sheet .chips { padding: 12px 0 10px; margin: 0 calc(-1 * var(--gutter)); padding-left: var(--gutter); padding-right: var(--gutter); }
+.sheet-body { overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; padding: 0 var(--gutter) 24px; border-top: 1px solid var(--rule); }
+.eat-group h3 { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); margin: 16px 0 2px; }
+.eat-row { border-bottom: 1px solid var(--rule); }
+.eat-row summary { list-style: none; display: grid; grid-template-columns: 1fr auto; column-gap: 10px; padding: 10px 0; cursor: pointer; }
+.eat-row summary::-webkit-details-marker { display: none; }
+.er-name { grid-column: 1; font-size: 15px; font-weight: 500; line-height: 1.3; }
+.er-type { grid-column: 1; font-size: 13px; color: var(--text-3); margin-top: 1px; }
+.qb { grid-column: 2; grid-row: 1 / span 2; align-self: center; font-size: 11.5px; font-weight: 600; padding: 3px 8px; border-radius: 10px; white-space: nowrap; }
+.qb.ok { background: color-mix(in srgb, var(--k-food) 15%, transparent); color: var(--k-food); }
+.qb.ask { border: 1px solid var(--accent); color: var(--accent); }
+.qb.maybe { background: var(--tint); color: var(--text-2); }
+.eat-row[open] summary .er-name { color: var(--k-food); }
+.er-body { padding: 0 0 12px; font-size: 14px; line-height: 1.45; color: var(--text-2); }
+.er-body p { margin: 0 0 6px; }
+.er-q { font-style: italic; }
+.er-map { display: inline-flex; align-items: center; gap: 6px; margin-top: 2px; font-weight: 500; color: var(--k-food); text-decoration: none; }
+.er-map svg { width: 16px; height: 16px; }
+.eat-empty { padding: 18px 0; font-size: 14px; color: var(--text-3); }

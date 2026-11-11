@@ -1,12 +1,12 @@
 /* Offline service worker. Everything the app needs is cached at install, so it runs in airplane mode. */
-const VERSION = '0fe78a026df2';
+const VERSION = 'e661629ae9aa';
 const CACHE = `japan-${VERSION}`;
 const FONT_CACHE = 'japan-fonts';
 const ASSETS = [
   "index.html",
-  "app.css?v=0fe78a026df2",
-  "app.js?v=0fe78a026df2",
-  "data.bin?v=0fe78a026df2",
+  "app.css?v=e661629ae9aa",
+  "app.js?v=e661629ae9aa",
+  "data.bin?v=e661629ae9aa",
   "manifest.webmanifest",
   "icons/icon-180.png",
   "icons/icon-192.png",

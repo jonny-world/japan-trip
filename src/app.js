@@ -197,8 +197,9 @@ function go(href, replace) {
   if (replace) { replacing = true; location.replace(href); } else location.hash = href;
 }
 function labelFor(hash) {
-  const [r, a] = hash.replace(/^#\/?/, '').split('/');
+  const [r, a, c] = hash.replace(/^#\/?/, '').split('/');
   if (r === '' || r === 'today') return 'Today';
+  if (r === 's') return findDay(a)?.plan[Number(c)]?.title || 'Back';
   if (r === 'day') return findDay(a) ? shortDate(a) : 'Back';
   if (r === 'days') return 'Days';
   if (r === 'bookings') return 'Bookings';
@@ -265,10 +266,13 @@ function bookingFor(it, day) {
   const b = it.b ? B(it.b) : null;
   return b && isStay(b) && day && day.date !== b.date ? null : b;
 }
-function itemHref(it, day) {
+// A shopping row's shops live on a page of their own, one pin each, so the plan stays short.
+const shopsHref = (day, i) => `#/s/${day.date}/${i}`;
+function itemHref(it, day, i) {
   const b = bookingFor(it, day);
   if (b) return `#/b/${b.id}`;
   if (it.g) return `#/g/${it.g}`;
+  if (it.shops?.length && i != null) return shopsHref(day, i);
   return '';
 }
 function itemStatus(it, day) {
@@ -293,7 +297,7 @@ function nowCard(day) {
     if (!x) return '';
     const it = x.it;
     const b = bookingFor(it, day);
-    const href = itemHref(it, day);
+    const href = itemHref(it, day, x.i);
     let when = label;
     if (label === 'Next' && it.time) when = x.hard ? `Next · ${esc(it.time)} · in ${fmtMins(x.start - nn.now.minutes)}` : `Next · ${esc(it.time)}`;
     else if (label === 'Now' && x.hard) when = `Now · since ${esc(it.time)}`;
@@ -303,6 +307,9 @@ function nowCard(day) {
     if (it.taxi) actions.push(`<button type="button" class="pill" data-driver="${esc(it.taxi)}">${I.taxi} Show driver</button>`);
     const gid = it.g || b?.guide?.[0];
     if (gid) actions.push(`<a class="pill" href="#/g/${gid}">${I.guide} How to</a>`);
+    if (it.shops?.length) actions.push(`<a class="pill" href="${shopsHref(day, x.i)}">${I.shop} Shopping</a>`);
+    const meal = openMeal(it, day);
+    if (meal) actions.push(`<button type="button" class="pill" data-eat="${esc(day.date)}" data-meal="${meal}">${I.eat} Options</button>`);
     const title = href ? `<a href="${href}">${esc(it.title)}<span class="chev" aria-hidden="true"> ›</span></a>` : esc(it.title);
     return `<div class="nn-row ${label === 'Now' ? 'is-now' : ''}"><p class="nn-label">${when}</p>
       <h3>${title}</h3>${label === 'Next' && it.note ? `<p class="nn-note">${esc(it.note)}</p>` : ''}
@@ -316,7 +323,7 @@ function timelineItem(day, x, done, nn) {
   const key = `${day.date}|${slug(it.title)}`;
   const isDone = done.has(key);
   const timeHtml = it.time ? `${esc(it.time)}${it.end ? `<span class="end">${esc(it.end)}</span>` : ''}` : '';
-  const href = itemHref(it, day);
+  const href = itemHref(it, day, x.i);
   const st = itemStatus(it, day);
   const b = bookingFor(it, day);
   const pin = it.pin === false ? null : it.map || (b?.place ? b.place.map || `${b.place.name} ${b.place.address || ''}` : null);
@@ -331,7 +338,10 @@ function timelineItem(day, x, done, nn) {
   const cls = ['tl-item', kcls(it.kind), isDone ? 'done' : '', nn?.cur?.i === x.i ? 'now' : '', nn?.nxt?.i === x.i ? 'next' : '', href ? 'linked' : '', side ? 'has-side' : ''].join(' ');
   // Only flag the exceptions — "booked" is the normal state, so it gets no badge.
   const trail = it.trail && !href ? `<a class="trail" href="${esc(it.trail)}">Trail on AllTrails ›</a>` : '';
-  const meta = [st && st !== 'booked' ? badge(st) : '', recNote(it.rec), trail].filter(Boolean).join('');
+  const shopsTag = it.shops?.length && href === shopsHref(day, x.i) ? `<span class="shops-tag">Shopping · ${it.shops.length} ${it.shops.length === 1 ? 'place' : 'places'}</span>` : '';
+  const meal = !href ? openMeal(it, day) : null;
+  const opts = meal ? `<button type="button" class="see-opts" data-eat="${esc(day.date)}" data-meal="${meal}">See options ›</button>` : '';
+  const meta = [st && st !== 'booked' ? badge(st) : '', recNote(it.rec), trail, shopsTag, opts].filter(Boolean).join('');
   const body = `<div class="tl-title">${esc(it.title)}${href ? '<span class="go" aria-hidden="true">›</span>' : ''}</div>
       ${it.note ? `<div class="tl-note">${esc(it.note)}</div>` : ''}
       ${meta ? `<div class="tl-meta">${meta}</div>` : ''}`;
@@ -375,7 +385,7 @@ function dayView(date, { isToday }) {
     ${isToday ? '<div class="status-line" id="offline-line" hidden><span class="dot"></span><span></span></div>' : ''}
     ${day.note ? `<div class="day-note">${I.warn}<span>${esc(day.note)}</span></div>` : ''}
     ${nowCard(day)}
-    <section class="section"><h2>The plan</h2>${plan}</section>
+    <section class="section"><h2 class="plan-h">The plan${eatCity(day) ? `<button type="button" class="eat-btn" data-eat="${esc(day.date)}">${I.eat}<span>Eat today</span></button>` : ''}</h2>${plan}</section>
     ${extras.length || ideas ? `<section class="section extras">${extras.join('')}${ideas}</section>` : ''}
   </main>${tabbar(isToday ? 'today' : 'days')}`;
 }
@@ -555,6 +565,96 @@ function guidePage(id) {
     <section class="section">${stepsHtml(g)}</section>
     ${used.length ? `<section class="section"><h2>Bookings on this route</h2>${used.map((b) => `<a class="card" href="#/b/${b.id}"><div class="row"><div><div class="eyebrow">${esc(whenText(b))}</div><h3>${esc(b.title)}</h3></div><span class="chev">›</span></div></a>`).join('')}</section>` : ''}
   </main>${tabbar('guide')}`;
+}
+
+function shopsPage(date, i) {
+  const day = findDay(date);
+  const it = day?.plan[Number(i)];
+  if (!it?.shops?.length) return notFound();
+  const rows = it.shops.map((s) => `<li class="k-shop">${I.shop}<div><div class="t">${esc(s.name)}</div>${s.note ? `<div class="n">${esc(s.note)}</div>` : ''}</div>
+    ${s.map ? `<a class="mapbtn" href="${esc(placeUrl(s.map))}" aria-label="Open ${esc(s.name)} in Google Maps">${I.map}</a>` : ''}</li>`).join('');
+  return `<main class="screen">
+    <div class="page-head">${back(`#/day/${date}`, shortDate(date))}<h1>${esc(it.title)}</h1><p>${esc(longDate(date))}${it.time ? ` · ${esc(it.time)}` : ''}</p></div>
+    <section class="section"><h2>Shopping</h2>${it.note ? `<p class="shops-note">${esc(it.note)}</p>` : ''}<ul class="ideas shops">${rows}</ul></section>
+  </main>${tabbar(nowJST().date === date ? 'today' : 'days')}`;
+}
+
+/* ---------------- Eat: food options from the FOOOOOOD tab ----------------
+   Each place has a city, the dates it's tagged for (none = any day in that city) and its meals. */
+const MEALS = [['coffee', 'Coffee'], ['lunch', 'Lunch'], ['dinner', 'Dinner'], ['drinks', 'Drinks']];
+const QUIN = { yes: ['ok', 'Quin ✓'], ask: ['ask', 'Quin: ask'], limited: ['ask', 'Quin: limited'], likely: ['maybe', 'Quin: likely'], unverified: ['maybe', 'Quin: unchecked'], unknown: ['maybe', 'Quin: unchecked'] };
+const FOOD = () => TRIP.food || [];
+// The day's own city, or on a travel day (Kyoto → Izu) the city of whatever is tagged for that day.
+function eatCity(day) {
+  if (!day) return null;
+  if (FOOD().some((p) => p.city === day.city)) return day.city;
+  return FOOD().find((p) => p.dates.includes(day.date))?.city || null;
+}
+function eatPool(date, mode, meal) {
+  const day = findDay(date);
+  const cityId = eatCity(day);
+  const pool = FOOD().filter((p) => !meal || p.meals.includes(meal));
+  if (mode === 'today') {
+    return [
+      [nowJST().date === date ? 'Today' : shortDate(date), pool.filter((p) => p.dates.includes(date))],
+      [`Any day in ${city(cityId).name}`, pool.filter((p) => p.city === cityId && !p.dates.length && !p.dates.includes(date))],
+    ];
+  }
+  const inCity = pool.filter((p) => p.city === cityId);
+  const byDate = {};
+  for (const p of inCity) { const k = p.dates[0] || 'any'; (byDate[k] ||= []).push(p); }
+  return Object.keys(byDate).sort((a, b) => (a === 'any') - (b === 'any') || a.localeCompare(b))
+    .map((k) => [k === 'any' ? 'Any day' : shortDate(k), byDate[k]]);
+}
+// Lunch and dinner rows that aren't booked get a "See options" link, filtered to that meal.
+function openMeal(it, day) {
+  if (it.kind !== 'eat' || it.b || it.status === 'booked') return null;
+  const m = toMinutes(it.time);
+  const meal = m === null ? 'lunch' : m < 11 * 60 ? 'coffee' : m < 16 * 60 ? 'lunch' : 'dinner';
+  return eatPool(day.date, 'today', meal).some(([, ps]) => ps.length) ? meal : null;
+}
+function eatRow(p) {
+  const [qc, ql] = QUIN[p.quin] || QUIN.unknown;
+  const maps = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.maps)}`;
+  return `<details class="eat-row"><summary><span class="er-name">${esc(p.name)}</span><span class="er-type">${esc([p.type, p.area].filter(Boolean).join(' · '))}</span><span class="qb ${qc}">${esc(ql)}</span></summary>
+    <div class="er-body">${p.why ? `<p>${esc(p.why)}</p>` : ''}${p.qnote ? `<p class="er-q">Note: ${esc(p.qnote)}</p>` : ''}
+    <a class="er-map" href="${esc(maps)}">${I.map}<span>Google Maps</span></a></div></details>`;
+}
+function showEat(date, meal) {
+  const day = findDay(date);
+  const cityId = eatCity(day);
+  if (!cityId) return;
+  const st = { mode: 'today', meal: meal || null };
+  const wrap = document.createElement('div');
+  wrap.className = 'sheet-wrap';
+  const paint = () => {
+    const groups = eatPool(date, st.mode, st.meal).filter(([, ps]) => ps.length);
+    const todayLabel = nowJST().date === date ? 'Today' : shortDate(date);
+    wrap.innerHTML = `<div class="sheet-scrim" data-close></div>
+      <div class="sheet" role="dialog" aria-label="Food options">
+        <div class="sheet-head"><div class="sheet-grip"></div>
+          <div class="sheet-top"><h2>Eat · ${esc(shortDate(date))}</h2><button type="button" class="sheet-x" data-close aria-label="Close">${I.close}</button></div>
+          <div class="seg" role="tablist"><button type="button" data-mode="today" aria-pressed="${st.mode === 'today'}">${esc(todayLabel)}</button><button type="button" data-mode="all" aria-pressed="${st.mode === 'all'}">All ${esc(city(cityId).name)}</button></div>
+          <div class="chips">${[['', 'All'], ...MEALS].map(([id, label]) => `<button type="button" class="chip" data-meal="${id}" aria-selected="${(st.meal || '') === id}">${label}</button>`).join('')}</div>
+        </div>
+        <div class="sheet-body">${groups.length ? groups.map(([h, ps]) => `<section class="eat-group"><h3>${esc(h)}</h3>${ps.map(eatRow).join('')}</section>`).join('')
+          : `<p class="eat-empty">Nothing on the list for this${st.mode === 'today' ? ' day' : ''}${st.meal ? ` — try All` : ''}.</p>`}</div>
+      </div>`;
+  };
+  const close = () => { wrap.remove(); document.body.classList.remove('sheet-open'); document.removeEventListener('keydown', onKey); };
+  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  wrap.addEventListener('click', (e) => {
+    const t = e.target;
+    if (t.closest('[data-close]')) { close(); return; }
+    const md = t.closest('[data-mode]');
+    if (md) { st.mode = md.dataset.mode; paint(); return; }
+    const ml = t.closest('[data-meal]');
+    if (ml) { st.meal = ml.dataset.meal || null; paint(); }
+  });
+  document.addEventListener('keydown', onKey);
+  paint();
+  document.body.appendChild(wrap);
+  document.body.classList.add('sheet-open');
 }
 
 /* ---------------- Yen calculator ----------------
@@ -790,6 +890,7 @@ function render() {
     case 'bookings': html = bookingsView(FILTERS.some(([f]) => f === arg) ? arg : 'all'); break;
     case 'b': html = bookingView(arg); break;
     case 'g': html = guidePage(arg); break;
+    case 's': html = shopsPage(arg, h.split('/')[2]); break;
     case 'guide': html = guideView(); break;
     // Old links from the first version.
     case 'stays': html = bookingsView('stays'); break;
@@ -825,6 +926,8 @@ app.addEventListener('click', async (e) => {
     tick.innerHTML = on ? I.check : (tick.dataset.kind === 'do' && tick.closest('.checklist') ? I.warn : kindIcon(tick.dataset.kind));
     return;
   }
+  const eat = t.closest('[data-eat]');
+  if (eat) { e.preventDefault(); showEat(eat.dataset.eat, eat.dataset.meal); return; }
   const qr = t.closest('[data-qr]');
   if (qr) { e.preventDefault(); showQR(qr.dataset.qr, Number(qr.dataset.i || 0)); return; }
   const drv = t.closest('[data-driver]');
