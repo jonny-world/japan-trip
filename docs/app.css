@@ -628,9 +628,9 @@ a { color: inherit; }
 .fx-box { background: var(--surface); border: 1px solid var(--rule); border-radius: 14px; padding: 10px 10px 10px; }
 .fx-top { display: flex; align-items: center; gap: 8px; min-height: 34px; padding: 0 4px; }
 .fx-from { flex: 1; min-width: 0; font: 500 var(--fx-from-fs)/1.2 var(--sans); color: var(--text-2); overflow-wrap: anywhere; }
-.fx-from.empty { color: var(--mist); }
+.fx-from.is-zero { color: var(--mist); }
 .fx-clear { flex: none; height: 30px; padding: 0 12px; border-radius: 15px; border: 1px solid var(--rule); font-size: 13px; color: var(--text-2); touch-action: manipulation; }
-.fx-clear[hidden] { display: none; }
+.fx-clear[hidden] { display: block; visibility: hidden; } /* keeps its space, so the row doesn't jump at zero */
 .fx-swap { flex: none; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--rule); display: grid; place-items: center; color: var(--text); touch-action: manipulation; }
 .fx-swap svg { width: 18px; height: 18px; }
 .fx-swap:active, .fx-clear:active { background: var(--tint); }

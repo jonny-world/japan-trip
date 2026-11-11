@@ -702,7 +702,7 @@ function paintFx() {
   const from = app.querySelector('[data-fx-from]');
   if (dir === 'jpy') from.textContent = `¥${n.toLocaleString('en-GB')}`;
   else { const [i, d] = (fxDigits || '0').split('.'); from.textContent = `£${Number(i || 0).toLocaleString('en-GB')}${d !== undefined ? `.${d}` : ''}`; }
-  from.classList.toggle('empty', !n);
+  from.classList.toggle('is-zero', !n); // not 'empty': that class pads the day page's empty state
   out.textContent = dir === 'jpy' ? gbp(n / jpy) : yen(n * jpy);
   app.querySelector('[data-fx-clear]').hidden = !fxDigits;
   app.querySelector('[data-key="alt"]').textContent = dir === 'jpy' ? '000' : '.';
