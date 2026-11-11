@@ -557,10 +557,95 @@ function guidePage(id) {
   </main>${tabbar('guide')}`;
 }
 
+/* ---------------- Yen calculator ----------------
+   Yen in, pounds out, on its own keypad so the phone keyboard never gets in the way.
+   The rate is fetched whenever the app is open and online, then kept on the phone, so it works in airplane mode.
+   Until the first fetch succeeds it falls back to the rate built in below. */
+const FX_KEY = 'jt-fx';
+const FX_SEED = { jpy: 212.0, date: '2026-11-09', src: 'built in' };
+const FX_EVERY = 3 * 3600 * 1000;
+const FX_TAX = 1.1; // Prices include 10% consumption tax; from Nov 2026 tourists claim it back on departure.
+const FX_MAX = 8;
+let fxDigits = '';
+const fxSaved = () => { const r = store.get(FX_KEY, null); return r && r.jpy > 50 && r.jpy < 1000 ? r : null; };
+const fxRate = () => fxSaved() || FX_SEED;
+const gbp = (n) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const backIcon = svg('<path d="M9 5.5h10.5a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H9l-5.5-6.5z"/><path d="m11.5 9.5 5 5M16.5 9.5l-5 5"/>');
+
+function fxSection() {
+  const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '000', '0', 'back'];
+  return `<section class="section fx"><h2>Yen calculator</h2>
+    <div class="fx-box">
+      <div class="fx-top">
+        <div class="fx-yen tnum" data-fx-yen></div>
+        <button type="button" class="fx-clear" data-fx-clear>Clear</button>
+      </div>
+      <div class="fx-out tnum" data-fx-out aria-live="polite"></div>
+      <div class="fx-tax" data-fx-tax></div>
+      <div class="fx-keys">${keys.map((k) => k === 'back'
+        ? `<button type="button" class="fx-key fx-back" data-key="back" aria-label="Delete">${backIcon}</button>`
+        : `<button type="button" class="fx-key${k === '000' ? ' fx-000' : ''}" data-key="${k}">${k}</button>`).join('')}</div>
+    </div>
+    <p class="fx-rate" data-fx-rate></p>
+  </section>`;
+}
+function paintFx() {
+  const out = app.querySelector('[data-fx-out]');
+  if (!out) return;
+  const { jpy, date, src, checked } = fxRate();
+  const n = Number(fxDigits || 0);
+  const yenEl = app.querySelector('[data-fx-yen]');
+  yenEl.textContent = `¥${n.toLocaleString('en-GB')}`;
+  yenEl.classList.toggle('empty', !n);
+  out.textContent = gbp(n / jpy);
+  app.querySelector('[data-fx-clear]').hidden = !n;
+  // Over ¥5,000 at one shop the 10% consumption tax can be claimed back when you leave Japan.
+  app.querySelector('[data-fx-tax]').textContent = n >= 5500 ? `≈ ${gbp(n / FX_TAX / jpy)} once the 10% tax is refunded` : `¥1,000 ≈ ${gbp(1000 / jpy)}`;
+  const fresh = checked ? `checked ${new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(checked))}` : 'updates next time you’re online';
+  app.querySelector('[data-fx-rate]').innerHTML = `<b class="tnum">£1 = ¥${jpy.toFixed(2)}</b> · ${esc(src === 'built in' ? `built-in rate from ${dayMonth(date)}` : `market rate for ${dayMonth(date)}`)} · ${esc(fresh)}`;
+}
+function fxKey(k) {
+  if (k === 'back') fxDigits = fxDigits.slice(0, -1);
+  else if (k === 'clear') fxDigits = '';
+  else if (fxDigits || k !== '000') fxDigits = (fxDigits + k).replace(/^0+/, '').slice(0, FX_MAX);
+  paintFx();
+}
+async function fxFetch(url, pick) {
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 8000);
+  try {
+    const res = await fetch(url, { signal: ctl.signal, cache: 'no-store' });
+    if (!res.ok) throw new Error(String(res.status));
+    return pick(await res.json());
+  } finally { clearTimeout(timer); }
+}
+let fxBusy = false;
+async function refreshFx(force = false) {
+  const saved = fxSaved();
+  if (fxBusy || navigator.onLine === false) return;
+  if (!force && saved?.checked && Date.now() - saved.checked < FX_EVERY) return;
+  fxBusy = true;
+  const sources = [
+    ['https://api.frankfurter.dev/v1/latest?base=GBP&symbols=JPY', (j) => ({ jpy: j.rates.JPY, date: j.date })],
+    ['https://open.er-api.com/v6/latest/GBP', (j) => ({ jpy: j.rates.JPY, date: new Date(j.time_last_update_unix * 1000).toISOString().slice(0, 10) })],
+  ];
+  try {
+    for (const [url, pick] of sources) {
+      try {
+        const r = await fxFetch(url, pick);
+        if (r.jpy > 50 && r.jpy < 1000 && /^\d{4}-\d{2}-\d{2}$/.test(r.date)) {
+          store.set(FX_KEY, { jpy: r.jpy, date: r.date, src: 'market', checked: Date.now() });
+          paintFx();
+          return;
+        }
+      } catch { /* try the next source */ }
+    }
+  } finally { fxBusy = false; }
+}
+
 function guideView() {
   const london = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
   const pre = london < TRIP.meta.start;
-  const done = doneSet();
   const routes = [];
   for (const d of TRIP.days) for (const it of d.plan) {
     const ids = [it.g, ...(it.b ? B(it.b)?.guide || [] : [])].filter(Boolean);
@@ -568,13 +653,9 @@ function guideView() {
   }
   const E = TRIP.essentials;
   const row = (g, lead) => `<a class="route-row" href="#/g/${g}"><span class="rr-date">${esc(lead)}</span><span class="rr-t">${esc(G(g)?.title)}</span><span class="chev">›</span></a>`;
-  const open = TRIP.checklist?.filter((c) => !done.has(`check|${c.id}`)).length || 0;
   return `<main class="screen">
-    <div class="page-head"><h1>Guide</h1><p>Getting around, phrases and help</p></div>
-    ${pre && TRIP.checklist?.length ? `<section class="section"><h2>Before you fly${open ? ` <span class="aside">${open} to do</span>` : ''}</h2><ul class="checklist">${TRIP.checklist.map((c) => {
-      const k = `check|${c.id}`; const on = done.has(k);
-      return `<li class="${on ? 'done' : ''}"><button type="button" class="tl-mark" data-tick="${esc(k)}" data-kind="do" aria-pressed="${on}" aria-label="Mark done">${on ? I.check : I.warn}</button><div><div class="t">${esc(c.title)}</div><div class="n">${esc(c.text)}</div>${c.g ? `<a class="more" href="#/g/${c.g}">Step by step ›</a>` : ''}</div></li>`;
-    }).join('')}</ul></section>` : ''}
+    <div class="page-head"><h1>Guide</h1><p>Getting around, money, phrases and help</p></div>
+    ${fxSection()}
     <section class="section"><h2>Trains</h2>
       ${pre ? row('suica-setup', 'Setup') : ''}${row('suica-riding', 'Suica')}
       <details class="fold"><summary>Train and taxi tips</summary><ul class="notes plain">${E.trains.map((t) => `<li>${esc(t.t)}</li>`).join('')}</ul></details>
@@ -688,6 +769,7 @@ function render() {
   }
   app.innerHTML = html;
   if (route === '' || route === 'today' || route === 'guide') updateOfflineLine();
+  if (route === 'guide') { paintFx(); refreshFx(); }
 }
 function navigated() {
   const y = trackNavigation();
@@ -725,6 +807,9 @@ app.addEventListener('click', async (e) => {
     try { await navigator.clipboard.writeText(cp.dataset.copy); toast('Copied'); } catch { toast('Couldn’t copy — press and hold to select'); }
     return;
   }
+  const key = t.closest('[data-key]');
+  if (key) { fxKey(key.dataset.key); return; }
+  if (t.closest('[data-fx-clear]')) { fxKey('clear'); return; }
   if (t.closest('[data-update]')) {
     if (!REG) { toast('Updates only work in the installed app'); return; }
     toast('Checking…');
@@ -742,6 +827,7 @@ app.addEventListener('change', (e) => {
   if (e.target.matches('[data-simpick]') && e.target.value) { session.set('jt-sim', e.target.value.slice(0, 16)); render(); }
 });
 window.addEventListener('hashchange', navigated);
+window.addEventListener('online', () => refreshFx());
 // Keep "now" honest while the app stays open.
 setInterval(() => { const r = location.hash.replace(/^#\/?/, '').split('/')[0]; if ((r === '' || r === 'today') && !document.querySelector('.overlay')) { const y = window.scrollY; render(); window.scrollTo(0, y); } }, 60000);
 
@@ -845,6 +931,7 @@ function open(bundle) {
   const seen = store.get('jt-version', null);
   if (seen && seen !== META.version && !META.preview) toast(`Updated · data from ${new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' }).format(new Date(META.builtAt))}`);
   store.set('jt-version', META.version);
+  refreshFx();
   // The font subset for the trip's Japanese text is only named inside the encrypted data.
   if (bundle.meta?.jaFont && !document.querySelector('link[data-jafont]')) {
     const l = document.createElement('link');
@@ -868,7 +955,7 @@ async function boot() {
       REG = reg;
       reg.update?.();
       // iOS resumes home-screen apps instead of relaunching them, so check again whenever the app comes back to the front.
-      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update?.().catch(() => {}); });
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { reg.update?.().catch(() => {}); refreshFx(); } });
       let reloaded = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => { if (!reloaded) { reloaded = true; location.reload(); } });
     } catch { /* offline mode unavailable */ }

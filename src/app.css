@@ -613,3 +613,28 @@ a { color: inherit; }
 .tl-mini svg { width: 20px; height: 20px; }
 .taxi-act { margin: 0 0 14px; }
 .trail { font-size: 13px; font-weight: 500; color: var(--k, var(--accent)); text-decoration: none; }
+
+/* ---------- Yen calculator ---------- */
+.fx-box { background: var(--surface); border: 1px solid var(--rule); border-radius: 16px; padding: 14px 14px 14px; }
+.fx-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 40px; padding: 0 4px; }
+.fx-yen { font: 500 30px/1.1 var(--sans); color: var(--text-2); letter-spacing: -0.01em; overflow-wrap: anywhere; }
+.fx-yen.empty { color: var(--mist); }
+.fx-clear { flex: none; height: 34px; padding: 0 14px; border-radius: 17px; border: 1px solid var(--rule); font-size: 14px; color: var(--text-2); touch-action: manipulation; }
+.fx-clear[hidden] { display: none; }
+.fx-out { font: 500 54px/1.05 var(--serif); margin-top: 6px; padding: 0 4px; letter-spacing: -0.015em; overflow-wrap: anywhere; }
+.fx-tax { font-size: 14px; color: var(--text-3); margin-top: 4px; padding: 0 4px; min-height: 20px; }
+.fx-keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; }
+.fx-key {
+  height: 58px; border-radius: 12px; background: var(--tint); color: var(--text);
+  font: 500 26px/1 var(--sans); font-variant-numeric: tabular-nums;
+  display: grid; place-items: center; touch-action: manipulation; user-select: none; -webkit-user-select: none;
+  transition: transform 60ms ease, background-color 60ms ease;
+}
+.fx-key:active { transform: scale(0.96); background: var(--line); }
+.fx-000 { font-size: 22px; letter-spacing: 0.02em; }
+.fx-back { background: transparent; border: 1px solid var(--rule); }
+.fx-back svg { width: 26px; height: 26px; }
+.fx-rate { margin: 10px 0 0; font-size: 13px; color: var(--text-3); line-height: 1.45; }
+.fx-rate b { font-weight: 600; color: var(--text-2); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .fx-key:active { background: var(--ink-line); } }
+:root[data-theme="dark"] .fx-key:active { background: var(--ink-line); }
